@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retention Energy · EO+ Kündigungstypen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --green: #16a34a;
+    --bg: #f8faf8;
+    --surface: #ffffff;
+    --border: #e4e9e4;
+    --text: #0f1a10;
+    --muted: #6b7a6c;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --blue: #2563eb;
+    --amber: #f59e0b;
+    --teal: #10b981;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  .loading-overlay { position: fixed; inset: 0; background: rgba(248,250,248,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 100; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 13px; color: var(--muted); }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+  .brand-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
+  .separator { width: 1px; height: 20px; background: var(--border); }
+  .page-title { font-size: 14px; color: var(--muted); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .last-updated { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .refresh-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px; background: transparent; font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+  .refresh-btn:hover { border-color: var(--green); color: var(--green); }
+  .nav-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px; background: transparent; font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; color: var(--muted); text-decoration: none; transition: all 0.15s; }
+  .nav-btn:hover { border-color: var(--green); color: var(--green); }
+  .spinning { animation: spin 1s linear infinite; display: inline-block; }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+  .error-banner { background: var(--red-light); border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: var(--red); margin-bottom: 1rem; }
+
+  /* CONTROLS */
+  .controls-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  .control-group { display: flex; flex-direction: column; gap: 4px; }
+  .control-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .seg-group { display: flex; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; background: var(--bg); }
+  .seg-btn { padding: 5px 14px; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; color: var(--muted); transition: all 0.15s; border-left: 1px solid var(--border); }
+  .seg-btn:first-child { border-left: none; }
+  .seg-btn.active { background: var(--text); color: white; font-weight: 500; }
+  .month-input { padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; }
+  .month-input:focus { border-color: var(--green); }
+  .reset-link { font-size: 12px; color: var(--muted); cursor: pointer; text-decoration: underline; align-self: flex-end; }
+
+  /* KPI SECTION */
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; }
+  .section-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--bg); color: var(--muted); border: 1px solid var(--border); font-weight: 400; }
+
+  .kpi-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: center; }
+  @media (max-width: 700px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
+
+  .kpi-card { border-radius: var(--radius); padding: 1.25rem; border: 1px solid var(--border); position: relative; overflow: hidden; }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .kpi-card.cons::before { background: var(--blue); }
+  .kpi-card.prod::before { background: var(--teal); }
+  .kpi-card.both::before { background: var(--amber); }
+  .kpi-card-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 10px; }
+  .kpi-card-main { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .kpi-card-value { font-size: 32px; font-weight: 600; line-height: 1; }
+  .kpi-card-pct { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .kpi-card-sub { font-size: 11px; color: var(--muted); }
+  .kpi-card.cons .kpi-card-value { color: var(--blue); }
+  .kpi-card.prod .kpi-card-value { color: var(--teal); }
+  .kpi-card.both .kpi-card-value { color: var(--amber); }
+
+  .donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0.5rem; }
+  .donut-label { font-size: 11px; color: var(--muted); }
+
+  /* CHART */
+  .legend-row { display: flex; gap: 16px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Lade Daten…</div>
+</div>
+
+<header>
+  <div class="header-left">
+    <div class="brand"><span class="brand-dot"></span>Retention Energy</div>
+    <div class="separator"></div>
+    <div class="page-title">EO+ Kündigungstypen</div>
+  </div>
+  <div class="header-right">
+    <a href="index.html" class="nav-btn">← Terminations</a>
+    <div class="last-updated" id="last-updated"></div>
+    <button class="refresh-btn" onclick="refreshData()">
+      <span id="refresh-icon">↻</span> Aktualisieren
+    </button>
+  </div>
+</header>
+
+<main>
+  <div id="error-area"></div>
+
+  <!-- CONTROLS -->
+  <div class="controls-panel">
+    <div class="control-group">
+      <div class="control-label">Datumsbasis</div>
+      <div class="seg-group">
+        <button class="seg-btn active" onclick="setMode('date','end',this)">Abmeldedatum</button>
+        <button class="seg-btn" onclick="setMode('date','request',this)">Kündigungsdatum</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Source Type</div>
+      <div class="seg-group">
+        <button class="seg-btn active" onclick="setMode('source','all',this)">Alle</button>
+        <button class="seg-btn" onclick="setMode('source','incoming',this)">Incoming</button>
+        <button class="seg-btn" onclick="setMode('source','outgoing',this)">Outgoing</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="control-label">ELZ</div>
+      <div class="seg-group">
+        <button class="seg-btn active" onclick="setMode('elz','all',this)">Alle</button>
+        <button class="seg-btn" onclick="setMode('elz','elz',this)">In ELZ</button>
+        <button class="seg-btn" onclick="setMode('elz','non_elz',this)">Nicht in ELZ</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Von</div>
+      <input type="month" class="month-input" id="from-month" value="2025-02" onchange="renderAll()">
+    </div>
+    <div class="control-group">
+      <div class="control-label">Bis</div>
+      <input type="month" class="month-input" id="to-month" onchange="renderAll()">
+    </div>
+    <span class="reset-link" onclick="resetFilters()">Reset</span>
+  </div>
+
+  <!-- TEIL A: KPIs -->
+  <div class="section">
+    <div class="section-title">
+      Teil A – Verteilung der Kündigungstypen
+      <span class="section-badge" id="kpi-total-badge">0 EO+ Kündigungen</span>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card cons">
+        <div class="kpi-card-label">Nur Strom (CONS)</div>
+        <div class="kpi-card-main">
+          <div class="kpi-card-value" id="kpi-cons">–</div>
+          <div class="kpi-card-pct" id="kpi-cons-pct">–%</div>
+        </div>
+        <div class="kpi-card-sub">Anteil an EO+ Kündigungen</div>
+      </div>
+      <div class="kpi-card prod">
+        <div class="kpi-card-label">Nur DV (PROD)</div>
+        <div class="kpi-card-main">
+          <div class="kpi-card-value" id="kpi-prod">–</div>
+          <div class="kpi-card-pct" id="kpi-prod-pct">–%</div>
+        </div>
+        <div class="kpi-card-sub">Anteil an EO+ Kündigungen</div>
+      </div>
+      <div class="kpi-card both">
+        <div class="kpi-card-label">Beide</div>
+        <div class="kpi-card-main">
+          <div class="kpi-card-value" id="kpi-both">–</div>
+          <div class="kpi-card-pct" id="kpi-both-pct">–%</div>
+        </div>
+        <div class="kpi-card-sub">Anteil an EO+ Kündigungen</div>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="donutChart" width="100" height="100" role="img" aria-label="Donut-Verteilung der Kündigungstypen"></canvas>
+        <div class="donut-label">Verteilung</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEIL B: Zeitverlauf -->
+  <div class="section">
+    <div class="section-title">Teil B – Zeitverlauf nach Kündigungstyp</div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Nur Strom (CONS)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Nur DV (PROD)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Beide</div>
+    </div>
+    <div style="position:relative;width:100%;height:300px;">
+      <canvas id="timelineChart" role="img" aria-label="Zeitverlauf der EO+ Kündigungstypen nach Monat"></canvas>
+    </div>
+  </div>
+</main>
+
+<script>
+const EO_PLUS_CONTRACTS = ['Enpal One+ (CONS) Enpal Vergütung (One+) (PROD)'];
+const COLORS = { CONS: '#2563eb', PROD: '#10b981', BOTH: '#f59e0b' };
+
+const FIELDS = {
+  CONTRACT:     'CONTRACT_NAME',
+  END_MONTH:    'MAKO_EARLIEST_TERMINATION_MONTH',
+  REQUEST_DATE: 'ODS_EARLIEST_TERMINATIONS_REQUEST',
+  SCOPE:        'TERMINATION_SCOPE',
+  SOURCE_TYPE:  'MAKO_TERMINATION_SOURCE_TYPE',
+  IN_ELZ:       'MAKO_TERMINATION_IN_ELZ',
+};
+
+let allRecords = [];
+let dateMode   = 'end';
+let sourceMode = 'all';
+let elzMode    = 'all';
+let donutInst  = null;
+let timeInst   = null;
+
+function f(rec, field) {
+  const v = rec.fields?.[field];
+  if (v == null) return '';
+  if (typeof v === 'object' && 'name' in v) return String(v.name);
+  return String(v);
+}
+
+function toYM(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  const iso = s.match(/^(\d{4}-\d{2})/);
+  if (iso) return iso[1];
+  const us = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (us) return `${us[3]}-${us[1].padStart(2,'0')}`;
+  return null;
+}
+
+function scopeKey(rec) {
+  const s = (f(rec, FIELDS.SCOPE) || '').toUpperCase();
+  if (s.includes('CONS') && s.includes('PROD')) return 'BOTH';
+  if (s.includes('CONS')) return 'CONS';
+  if (s.includes('PROD')) return 'PROD';
+  return null;
+}
+
+function filterRecords() {
+  const fromM = document.getElementById('from-month').value;
+  const toM   = document.getElementById('to-month').value;
+
+  return allRecords.filter(rec => {
+    if (!EO_PLUS_CONTRACTS.includes(f(rec, FIELDS.CONTRACT))) return false;
+
+    if (sourceMode !== 'all') {
+      const st = (f(rec, FIELDS.SOURCE_TYPE) || '').toLowerCase();
+      if (sourceMode === 'incoming' && !st.includes('incoming')) return false;
+      if (sourceMode === 'outgoing' && !st.includes('outgoing')) return false;
+    }
+
+    if (elzMode !== 'all') {
+      const inElz = f(rec, FIELDS.IN_ELZ) !== '';
+      if (elzMode === 'elz'     && !inElz) return false;
+      if (elzMode === 'non_elz' &&  inElz) return false;
+    }
+
+    const ym = toYM(f(rec, dateMode === 'end' ? FIELDS.END_MONTH : FIELDS.REQUEST_DATE));
+    if (!ym) return false;
+    if (fromM && ym < fromM) return false;
+    if (toM   && ym > toM)   return false;
+
+    return true;
+  });
+}
+
+function renderAll() {
+  const records = filterRecords();
+  const totals  = { CONS: 0, PROD: 0, BOTH: 0 };
+  const monthly = {};
+
+  records.forEach(rec => {
+    const sk = scopeKey(rec);
+    if (!sk) return;
+    totals[sk]++;
+    const ym = toYM(f(rec, dateMode === 'end' ? FIELDS.END_MONTH : FIELDS.REQUEST_DATE));
+    if (!ym) return;
+    if (!monthly[ym]) monthly[ym] = { CONS: 0, PROD: 0, BOTH: 0 };
+    monthly[ym][sk]++;
+  });
+
+  const total = totals.CONS + totals.PROD + totals.BOTH;
+  const pct   = v => total > 0 ? ((v / total) * 100).toFixed(1) + '%' : '0%';
+
+  document.getElementById('kpi-total-badge').textContent = total.toLocaleString('de-DE') + ' EO+ Kündigungen';
+  document.getElementById('kpi-cons').textContent     = totals.CONS.toLocaleString('de-DE');
+  document.getElementById('kpi-prod').textContent     = totals.PROD.toLocaleString('de-DE');
+  document.getElementById('kpi-both').textContent     = totals.BOTH.toLocaleString('de-DE');
+  document.getElementById('kpi-cons-pct').textContent = pct(totals.CONS);
+  document.getElementById('kpi-prod-pct').textContent = pct(totals.PROD);
+  document.getElementById('kpi-both-pct').textContent = pct(totals.BOTH);
+
+  renderDonut(totals, total);
+  renderTimeline(monthly);
+}
+
+function renderDonut(totals, total) {
+  if (donutInst) donutInst.destroy();
+  donutInst = new Chart(document.getElementById('donutChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Nur CONS', 'Nur PROD', 'Beide'],
+      datasets: [{
+        data: [totals.CONS, totals.PROD, totals.BOTH],
+        backgroundColor: [COLORS.CONS, COLORS.PROD, COLORS.BOTH],
+        borderWidth: 2,
+        borderColor: '#ffffff',
+      }]
+    },
+    options: {
+      responsive: false,
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed} (${total > 0 ? ((ctx.parsed/total)*100).toFixed(1) : 0}%)` } }
+      }
+    }
+  });
+}
+
+function renderTimeline(monthly) {
+  const months = Object.keys(monthly).sort();
+  const DE_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const labels = months.map(m => {
+    const [y, mo] = m.split('-');
+    return (DE_MONTHS[parseInt(mo,10)-1] || mo) + ' ' + y;
+  });
+
+  if (timeInst) timeInst.destroy();
+  timeInst = new Chart(document.getElementById('timelineChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Nur Strom (CONS)',
+          data: months.map(m => monthly[m]?.CONS || 0),
+          borderColor: COLORS.CONS,
+          backgroundColor: COLORS.CONS + '18',
+          borderWidth: 2,
+          pointRadius: months.length <= 60 ? 4 : 0,
+          pointHoverRadius: 6,
+          tension: 0,
+        },
+        {
+          label: 'Nur DV (PROD)',
+          data: months.map(m => monthly[m]?.PROD || 0),
+          borderColor: COLORS.PROD,
+          backgroundColor: COLORS.PROD + '18',
+          borderWidth: 2,
+          pointRadius: months.length <= 60 ? 4 : 0,
+          pointHoverRadius: 6,
+          tension: 0,
+        },
+        {
+          label: 'Beide',
+          data: months.map(m => monthly[m]?.BOTH || 0),
+          borderColor: COLORS.BOTH,
+          backgroundColor: COLORS.BOTH + '18',
+          borderWidth: 2,
+          pointRadius: months.length <= 60 ? 4 : 0,
+          pointHoverRadius: 6,
+          tension: 0,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { font: { family: 'DM Sans', size: 11 }, color: '#9ca3af', maxRotation: 45, autoSkip: true, maxTicksLimit: 18 },
+          grid: { color: '#f1f5f0' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { font: { family: 'DM Sans', size: 11 }, color: '#9ca3af', precision: 0 },
+          grid: { color: '#f1f5f0' }
+        }
+      }
+    }
+  });
+}
+
+function setMode(type, value, btn) {
+  if (type === 'date')   dateMode   = value;
+  if (type === 'source') sourceMode = value;
+  if (type === 'elz')    elzMode    = value;
+  btn.closest('.seg-group').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+function resetFilters() {
+  document.getElementById('from-month').value = '2025-02';
+  document.getElementById('to-month').value   = '';
+  renderAll();
+}
+
+async function loadData() {
+  showLoading('Lade Daten…');
+  clearError();
+  allRecords = [];
+  try {
+    let offset = null;
+    let batch  = 0;
+    do {
+      batch++;
+      setLoadingText(`Lade Batch ${batch}…`);
+      const url = new URL('/api/airtable', window.location.origin);
+      if (offset) url.searchParams.set('offset', offset);
+      const res  = await fetch(url.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      allRecords.push(...(data.records || []));
+      offset = data.offset || null;
+    } while (offset && allRecords.length < 100000);
+
+    hideLoading();
+    document.getElementById('last-updated').textContent = 'Geladen: ' + new Date().toLocaleTimeString('de-DE');
+    renderAll();
+  } catch (e) {
+    hideLoading();
+    showError('Fehler: ' + e.message);
+  }
+}
+
+async function refreshData() {
+  const icon = document.getElementById('refresh-icon');
+  icon.classList.add('spinning');
+  await loadData();
+  icon.classList.remove('spinning');
+}
+
+function showLoading(t) { document.getElementById('loading').style.display='flex'; setLoadingText(t); }
+function setLoadingText(t) { document.getElementById('loading-text').textContent = t; }
+function hideLoading() { document.getElementById('loading').style.display='none'; }
+function showError(m) { document.getElementById('error-area').innerHTML = `<div class="error-banner">${m}</div>`; }
+function clearError() { document.getElementById('error-area').innerHTML = ''; }
+
+loadData();
+</script>
+</body>
+</html>
