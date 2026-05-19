@@ -184,7 +184,7 @@
       </div>
       <div class="chart-filter-group">
         <label>Von</label>
-        <input type="month" id="from-month" onchange="renderChart()">
+        <input type="month" id="from-month" value="2025-02" onchange="renderChart()">
         <label>Bis</label>
         <input type="month" id="to-month" onchange="renderChart()">
         <span class="reset-link" onclick="resetDateFilter()">Reset</span>
@@ -403,7 +403,7 @@ function renderChart() {
     monthsSet.add(ym);
   });
 
-  let months = Array.from(monthsSet).sort();
+  let months = Array.from(monthsSet).sort().filter(m => m >= '2025-02');
   if (fromM) months = months.filter(m => m >= fromM);
   if (toM)   months = months.filter(m => m <= toM);
 
