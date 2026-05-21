@@ -14,10 +14,11 @@ const USERS = [
 // ── Filter options ─────────────────────────────────────────────────────────────
 const CLEANUP_FILTER_OPTIONS = [
   { value: "",                                       label: "Alle anzeigen" },
-  { value: "ONLY_PROD_CANCELLED_CONS_ELZ_ENDED",    label: "Nur Prod. gek. / CONS ELZ beendet" },
-  { value: "ONLY_PROD_CANCELLED_CONS_IN_ELZ",       label: "Nur Prod. gek. / CONS in ELZ" },
-  { value: "ONLY_CONS_CANCELLED_PROD_ELZ_ENDED",    label: "Nur CONS gek. / Prod. ELZ beendet" },
-  { value: "ONLY_CONS_CANCELLED_PROD_IN_ELZ",       label: "Nur CONS gek. / Prod. in ELZ" },
+  { value: "__EMPTY__",                              label: "(Leer / kein Wert)" },
+  { value: "ONLY_PROD_CANCELLED_CONS_ELZ_ENDED",    label: "ONLY_PROD_CANCELLED_CONS_ELZ_ENDED" },
+  { value: "ONLY_PROD_CANCELLED_CONS_IN_ELZ",       label: "ONLY_PROD_CANCELLED_CONS_IN_ELZ" },
+  { value: "ONLY_CONS_CANCELLED_PROD_ELZ_ENDED",    label: "ONLY_CONS_CANCELLED_PROD_ELZ_ENDED" },
+  { value: "ONLY_CONS_CANCELLED_PROD_IN_ELZ",       label: "ONLY_CONS_CANCELLED_PROD_IN_ELZ" },
 ];
 
 const GESPRAECHSERGEBNIS_OPTIONS = [
@@ -233,20 +234,39 @@ function Dashboard({ currentUser, onLogout }) {
     "Content-Type": "application/json",
   };
 
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (filterValue = "") => {
     setLoading(true);
+    setRecords([]);
     try {
-      let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(TABLE_NAME)}?pageSize=100&sort[0][field]=SALESFORCE_CUSTOMER_NAME&sort[0][direction]=asc`;
-      const res = await fetch(url, { headers });
-      const data = await res.json();
-      setRecords(data.records || []);
+      let allRecords = [];
+      let offset = null;
+
+      // Build server-side filter formula
+      let formula = "";
+      if (filterValue === "__EMPTY__") {
+        formula = `&filterByFormula=${encodeURIComponent('ONE_SIDED_TERMINATION_CLEANUP=""')}`;
+      } else if (filterValue) {
+        formula = `&filterByFormula=${encodeURIComponent(`ONE_SIDED_TERMINATION_CLEANUP="${filterValue}"`)}`;
+      }
+
+      do {
+        let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(TABLE_NAME)}?pageSize=100&sort[0][field]=SALESFORCE_CUSTOMER_NAME&sort[0][direction]=asc${formula}`;
+        if (offset) url += `&offset=${offset}`;
+        const res = await fetch(url, { headers });
+        const data = await res.json();
+        allRecords = allRecords.concat(data.records || []);
+        offset = data.offset || null;
+        // Update progressively so user sees records loading in
+        setRecords([...allRecords]);
+      } while (offset);
+
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { fetchRecords(cleanupFilter); }, [cleanupFilter]);
 
   const selectRecord = (rec) => {
     setSelected(rec);
@@ -309,10 +329,7 @@ function Dashboard({ currentUser, onLogout }) {
     const matchesSearch =
       name.toLowerCase().includes(search.toLowerCase()) ||
       gcid.toLowerCase().includes(search.toLowerCase());
-    const matchesCleanup =
-      !cleanupFilter ||
-      r.fields.ONE_SIDED_TERMINATION_CLEANUP === cleanupFilter;
-    return matchesSearch && matchesCleanup;
+    return matchesSearch;
   });
 
   const queueRecords    = filtered.filter((r) => (r.fields.DV_PILOT_STATUS || "Offen") !== "Erledigt");
