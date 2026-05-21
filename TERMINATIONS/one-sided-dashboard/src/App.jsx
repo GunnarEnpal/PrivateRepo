@@ -282,6 +282,7 @@ function Dashboard({ currentUser, onLogout }) {
           DV_NAECHSTER_SCHRITT: naechsterSchritt,
           DV_PILOT_STATUS: pilotStatus,
           DV_LETZTER_KONTAKT: new Date().toISOString().split("T")[0],
+          DV_AGENT: currentUser,
           ...extraFields,
         },
       };
