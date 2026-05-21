@@ -234,39 +234,28 @@ function Dashboard({ currentUser, onLogout }) {
     "Content-Type": "application/json",
   };
 
-  const fetchRecords = useCallback(async (filterValue = "") => {
+  const fetchRecords = useCallback(async () => {
     setLoading(true);
     setRecords([]);
     try {
       let allRecords = [];
       let offset = null;
-
-      // Build server-side filter formula
-      let formula = "";
-      if (filterValue === "__EMPTY__") {
-        formula = `&filterByFormula=${encodeURIComponent('ONE_SIDED_TERMINATION_CLEANUP=""')}`;
-      } else if (filterValue) {
-        formula = `&filterByFormula=${encodeURIComponent(`ONE_SIDED_TERMINATION_CLEANUP="${filterValue}"`)}`;
-      }
-
       do {
-        let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(TABLE_NAME)}?pageSize=100&sort[0][field]=SALESFORCE_CUSTOMER_NAME&sort[0][direction]=asc${formula}`;
+        let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(TABLE_NAME)}?pageSize=100&sort[0][field]=SALESFORCE_CUSTOMER_NAME&sort[0][direction]=asc`;
         if (offset) url += `&offset=${offset}`;
         const res = await fetch(url, { headers });
         const data = await res.json();
         allRecords = allRecords.concat(data.records || []);
         offset = data.offset || null;
-        // Update progressively so user sees records loading in
         setRecords([...allRecords]);
       } while (offset);
-
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchRecords(cleanupFilter); }, [cleanupFilter]);
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
   const selectRecord = (rec) => {
     setSelected(rec);
@@ -329,7 +318,11 @@ function Dashboard({ currentUser, onLogout }) {
     const matchesSearch =
       name.toLowerCase().includes(search.toLowerCase()) ||
       gcid.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
+    const cleanupVal = r.fields.ONE_SIDED_TERMINATION_CLEANUP || "";
+    const matchesCleanup =
+      !cleanupFilter ||
+      (cleanupFilter === "__EMPTY__" ? cleanupVal === "" : cleanupVal === cleanupFilter);
+    return matchesSearch && matchesCleanup;
   });
 
   const queueRecords    = filtered.filter((r) => (r.fields.DV_PILOT_STATUS || "Offen") !== "Erledigt");
